@@ -1,0 +1,251 @@
+---
+title: "Untitled"
+author: "Stephen Shannon"
+date: "2025-10-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### 1 Multivariate skew-normal, multivariate t, multivariate skew t sampling & plotting
+
+```{r}
+# install.packages("sn")
+# install.packages("mvtnorm")
+library(sn)
+library(mvtnorm)
+library(tidyverse)
+
+
+  #### Set params ----
+
+mu <- c(0,0)
+rho_12 <- -0.75
+sigma <- matrix(c(1, rho_12,
+                  rho_12, 1), 2, 2)
+alpha <- c(5, -2)
+df <- 15
+
+  #### function to input params -> output plots ----
+
+#' Function to make plots
+#' 
+#' @param mu integer vector, the mean of the distributions
+#' @param sigma integer matrix, the covariance or scale matrix
+#' @param alpha integer vector, skew parameter
+#' @param df integer, degrees of freedom 
+make_contour_plots_func <- function(mu, sigma, alpha, df) {
+
+  x <- seq(-5, 5, 0.05)
+  y <- seq(-5, 5, 0.05)
+  
+    # skewed multivariate normal
+  # f_dmsn <- function(x, y) { 
+  #   sn::dmsn(cbind(x, y), xi =  mu, Omega = sigma, alpha = alpha) 
+  # }
+  # 
+  #   # multivariate t
+  # f_dmvt <-  function(x, y) { 
+  #   sn::dmsn(cbind(x, y), xi =  mu, Omega = sigma, alpha = alpha) 
+  # }
+  
+    # skewed multivariate t
+  
+  # f_dmst <- function(x, y) { 
+  #   sn::dmst(cbind(x, y), xi =  mu, Omega = sigma, alpha = alpha, nu = df) 
+  # }
+  
+  grid_df <- density_df <- data.frame(expand_grid(x, y))
+  
+    # multivariate skew normal
+  density_df$z_multivariate_skew_normal <- sn::dmsn(grid_df, xi = mu, Omega = sigma, alpha = alpha)
+  
+    # multivariate t
+  density_df$z_multivariate_t  <- mvtnorm::dmvt(grid_df, delta = mu, sigma = sigma, df = df, log = FALSE)
+  
+    # mutlivariate skew t
+  density_df$z_multivariate_skew_t <- dmst(grid_df, xi = mu, Omega = sigma, alpha = alpha, nu = df)
+  
+  density_df_long <- pivot_longer(density_df, cols = 3:5, names_to = "density", values_to = "z")
+  
+    # make constant breaks to examine contour curves at the same level
+  contour_breaks <- quantile(density_df_long$z[density_df_long$z > 0],
+                 probs = seq(0.1, 0.9, by = 0.1))
+
+  
+  
+  
+  density_grid_plot <- ggplot(data = density_df_long,
+                              aes(x = x,
+                                  y = y,
+                                  z = z,
+                                  group = density,
+                                  color = density)) +
+    geom_contour(breaks = contour_breaks, linewidth = 0.7, na.rm = TRUE) +
+    facet_wrap(~density) +
+    theme(aspect.ratio = 1)
+  
+  return( density_grid_plot )
+}
+
+# rho_12 <- -0.75
+
+  #### Make plots ----
+
+
+  # We know that mu is simply where the distribution will be, I will fix it at (0,0)
+  # additionally, I will keep the variance mostly constant throughout to focus on 
+  # df and alpha.
+
+  # For alpha, I will make 4 sets of plots, where the two alpha points
+  # will cover all quadrant combinations
+
+  # For df, I will increase it slowly, I will also use this opportunity to
+  # observe a changing sigma matrix
+
+  # Baseline -- distributions collapse into MVN
+make_contour_plots_func(mu = c(0,0),
+                        sigma = matrix(c(1, 0,
+                                         0, 1), 2, 2),
+                        alpha = c(0, 0),
+                        df = 2)
+  # df = 1
+a <- make_contour_plots_func(mu = c(0,0),
+                        sigma = matrix(c(1, 0,
+                                         0, 1), 2, 2),
+                        alpha = c(0, 0),
+                        df = 1)
+a$facet <- ggplot2::facet_null()
+a
+  # df = 2
+b <- make_contour_plots_func(mu = c(0,0),
+                        sigma = matrix(c(1, 0,
+                                         0, 1), 2, 2),
+                        alpha = c(0, 0),
+                        df = 2)
+b$facet <- ggplot2::facet_null()
+b
+  # df = 5
+c <- make_contour_plots_func(mu = c(0,0),
+                        sigma = matrix(c(1, 0,
+                                         0, 1), 2, 2),
+                        alpha = c(0, 0),
+                        df = 5)
+c$facet <- ggplot2::facet_null()
+c
+# df = 10
+d <- make_contour_plots_func(mu = c(0,0),
+                        sigma = matrix(c(1, 0,
+                                         0, 1), 2, 2),
+                        alpha = c(0, 0),
+                        df = 10)
+d$facet <- ggplot2::facet_null()
+d
+# df = 100
+e <- make_contour_plots_func(mu = c(0,0),
+                        sigma = matrix(c(1, 0,
+                                         0, 1), 2, 2),
+                        alpha = c(0, 0),
+                        df = 100)
+e$facet <- ggplot2::facet_null()
+e
+
+  # For the multivariate t, (without alpha, the multivariate skew t collapses
+  # into the multivariate t), as df increases, the probability rings begin to 
+  # coincide with the values of the multivariate skew distribution (which, is
+  # collapsed into the normal multivariate distribution with the alpha parameter
+  # set to 0). When df is small, the peak at the mean of the multivariate normal is 
+  # taller than the multivariate t, as a result, the slope leading up to it
+  # sharply decreases faster than the multivariate normal, and it doesn't have as
+  # much height as the multivariate t distribution, as we increase the distance
+  # from mu. 
+
+  # Let covariance & scale matrices vary a bit, increase df, hold alpha constant
+  # Temporarily removing the facet feature to observe the affect of df
+
+x <- make_contour_plots_func(mu = c(0,0),
+                        sigma = matrix(c(1, -0.75,
+                                         -0.75, 1), 2, 2),
+                        alpha = c(1, 2),
+                        df = 2)
+x$facet <- ggplot2::facet_null()
+x
+  # 
+y <- make_contour_plots_func(mu = c(0,0),
+                        sigma = matrix(c(1, 0.9,
+                                         0.9, 1), 2, 2),
+                        alpha = c(3, -4),
+                        df = 8)
+
+y$facet <- ggplot2::facet_null()
+y
+
+z <- make_contour_plots_func(mu = c(0,0),
+                        sigma = matrix(c(1, 0,
+                                         0, 1), 2, 2),
+                        alpha = c(2, 0),
+                        df = 15)
+
+z$facet <- ggplot2::facet_null()
+z
+
+  # With alpha in effect, we can compare the multivariate skew t with the
+  # with the multivariate skew normal. As we noticed earlier, the peak of the
+  # multivariate skew normal distribution is still higher than the multivariate skew
+  # t, but in the tails, with low df, the multivaraite skew t has a 
+  # higher z value, otherwise the skew parameter seems to be more strongly
+  # affecting the multivariate skew t, and, pulling the density out further
+  # towards the "magnet" point. 
+
+  # Play with alpha and covariance a bit
+make_contour_plots_func(mu = c(0,0),
+                        sigma = matrix(c(3, 2.5,
+                                         2.5, 4), 2, 2),
+                        alpha = c(-3, -1),
+                        df = 2)
+
+make_contour_plots_func(mu = c(1,1),
+                        sigma = matrix(c(0.5, -0.5,
+                                         -0.5, 2), 2, 2),
+                        alpha = c(0, -3),
+                        df = 2)
+
+
+  # Let alpha vary across all 4 quadrants of (x,y) space
+make_contour_plots_func(mu = c(0,0),
+                        sigma = matrix(c(2, -0.2,
+                                         -0.2, 0.5), 2, 2),
+                        alpha = c(10, -10),
+                        df = 5)
+
+make_contour_plots_func(mu = c(0,0),
+                        sigma = matrix(c(1.5, -1.2,
+                                         -1.2, 3), 2, 2),
+                        alpha = c(-5, -2),
+                        df = 10)
+
+make_contour_plots_func(mu = c(0,0),
+                        sigma = matrix(c(1, 0,
+                                         0, 1), 2, 2),
+                        alpha = c(-10, 5),
+                        df = 100)
+
+make_contour_plots_func(mu = c(0,0),
+                        sigma = matrix(c(0.8, 0,
+                                         0, 3), 2, 2),
+                        alpha = c(5, 2),
+                        df = 1)
+  # Alpha controls the skew parameter for the multivariate normal and multivariate skew t.
+  # Observe that as we let alpha move into each quadrant, the coordinate pair acts as a repelling force for the distribution, and "attracts" the density towards from the source point. for example, for alpha = c(x = 5,y = -2), the distribution is 'stretched' such that it has a larger x range towards 5, and it is also pulled toward a lower y range, toward -2. Observe that, essentially a line is made in a fashion not so different than a rise over run situation, when |a| is high, and the density drops off sharply at this line, however, the density, though "thin" is spread very far out after this drop off.
+  
+
+
+
+```
+
+
+
+
+
